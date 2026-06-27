@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Nepal Land Calculator</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#e8a020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Land Calc">
+
+<!-- Apple touch icons -->
+<link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png">
+
+<!-- Apple splash screens -->
+<link rel="apple-touch-startup-image" href="./icons/splash-1080x1920.png"
+  media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
+
+<!-- Description / SEO -->
+<meta name="description" content="Convert and calculate Nepal land measurements: Ropani, Aana, Paisa, Dam, Bigha, Kattha, Dhur. Works offline.">
+
+<style>
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --card: #21253a; --border: #2e3350;
+    --accent: #e8a020; --accent2: #c0392b; --text: #e8eaf0; --muted: #8b91a8;
+    --green: #27ae60; --red: #e74c3c;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; min-height: 100vh; padding: 16px; }
+  h1 { font-size: 20px; font-weight: 600; color: var(--accent); text-align: center; margin-bottom: 4px; }
+  .subtitle { text-align: center; color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; background: var(--surface); padding: 4px; border-radius: 10px; }
+  .tab { flex: 1; padding: 8px 4px; background: transparent; border: none; color: var(--muted); font-size: 12px; font-weight: 500; border-radius: 7px; cursor: pointer; transition: all 0.2s; }
+  .tab.active { background: var(--accent); color: #000; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .card-title { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; margin-top: 10px; }
+  input[type=number], select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px; outline: none; transition: border-color 0.2s; -moz-appearance: textfield; }
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  input[type=number]:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface); }
+  .btn { width: 100%; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 14px; transition: opacity 0.2s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-sm { padding: 9px 12px; font-size: 12px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; }
+  .btn-sm:hover { opacity: 0.85; }
+  .btn-add { background: var(--green); color: #fff; }
+  .btn-remove { background: var(--accent2); color: #fff; }
+  .btn-calc { background: var(--accent); color: #000; }
+  .result-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 12px; }
+  .result-box .rl { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .result-box .rv { font-size: 18px; font-weight: 600; color: var(--green); }
+  .result-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .result-table td { padding: 6px 4px; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .result-table td:last-child { text-align: right; color: var(--accent); font-weight: 600; }
+  .result-table tr:last-child td { border-bottom: none; }
+
+  /* compound input grid: 4 fields for hill, 3 for terai */
+  .compound-grid { display: grid; gap: 6px; margin-top: 6px; }
+  .compound-grid.hill4 { grid-template-columns: repeat(4, 1fr); }
+  .compound-grid.terai3 { grid-template-columns: repeat(3, 1fr); }
+  .compound-grid .ci label { margin-top: 0; font-size: 10px; }
+  .compound-grid .ci input { padding: 8px 6px; font-size: 13px; text-align: center; }
+
+  /* Arithmetic */
+  .op-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+  .op-btn { padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 18px; cursor: pointer; transition: all 0.2s; }
+  .op-btn.active, .op-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .operand-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; position: relative; }
+  .operand-row .row-label { font-size: 10px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+  .operand-row .row-label span { font-weight: 600; color: var(--accent); }
+
+  .add-row-btn { width: 100%; padding: 10px; background: transparent; border: 1px dashed var(--green); border-radius: 8px; color: var(--green); font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 6px; transition: all 0.2s; }
+  .add-row-btn:hover { background: rgba(39,174,96,0.1); }
+
+  .scalar-input { margin-top: 8px; }
+  .error { color: var(--red); font-size: 12px; margin-top: 8px; display: none; }
+
+  /* Reference */
+  .ref-table { width: 100%; border-collapse: collapse; }
+  .ref-table th { background: var(--surface); padding: 8px 6px; text-align: left; font-size: 11px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .ref-table td { padding: 8px 6px; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .ref-table td:first-child { color: var(--muted); }
+  .ref-table td:last-child { text-align: right; color: var(--text); }
+  .ref-table tr:last-child td { border-bottom: none; }
+
+  /* PWA / safe area */
+  body {
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  /* Splash overlay */
+  #splash {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #0f1117;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.5s ease;
+  }
+  #splash.hidden { opacity: 0; pointer-events: none; }
+  #splash img { width: 100px; height: 100px; border-radius: 24px; margin-bottom: 24px; }
+  #splash h2 { color: #e8a020; font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  #splash p  { color: #8b91a8; font-size: 13px; }
+  #splash .loader {
+    margin-top: 32px; width: 40px; height: 4px;
+    background: #2e3350; border-radius: 4px; overflow: hidden;
+  }
+  #splash .loader::after {
+    content: ''; display: block; height: 100%;
+    width: 40%; background: #e8a020; border-radius: 4px;
+    animation: slide 1s ease-in-out infinite alternate;
+  }
+  @keyframes slide { from { transform: translateX(0); } to { transform: translateX(150%); } }
+
+  /* Install banner */
+  #install-banner {
+    display: none; position: fixed; bottom: 16px; left: 16px; right: 16px; z-index: 100;
+    background: #21253a; border: 1px solid #e8a020; border-radius: 12px;
+    padding: 12px 14px; align-items: center; gap: 10px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  #install-banner.show { display: flex; }
+  #install-banner img { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; }
+  #install-banner .ib-text { flex: 1; }
+  #install-banner .ib-text strong { display: block; color: #e8eaf0; font-size: 13px; }
+  #install-banner .ib-text span { color: #8b91a8; font-size: 11px; }
+  #install-banner button { padding: 7px 14px; border: none; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  #ib-install { background: #e8a020; color: #000; }
+  #ib-dismiss { background: transparent; color: #8b91a8; }
+
+</style>
+</head>
+<body>
+
+<!-- Splash screen -->
+<div id="splash">
+  <img src="./icons/icon-192.png" alt="Logo">
+  <h2>Nepal Land</h2>
+  <p>Ropani · Aana · Paisa · Dam &nbsp;|&nbsp; Bigha · Kattha · Dhur</p>
+  <div class="loader"></div>
+</div>
+
+<!-- Install banner -->
+<div id="install-banner">
+  <img src="./icons/icon-96.png" alt="">
+  <div class="ib-text">
+    <strong>Add to Home Screen</strong>
+    <span>Use offline, anytime</span>
+  </div>
+  <button id="ib-install">Install</button>
+  <button id="ib-dismiss">✕</button>
+</div>
+
+
+
+<h1>🏔 Nepal Land Calculator</h1>
+<p class="subtitle">Ropani · Aana · Paisa · Dam &nbsp;|&nbsp; Bigha · Kattha · Dhur</p>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('convert',this)">Convert</button>
+  <button class="tab" onclick="showTab('arith',this)">Calculate</button>
+  <button class="tab" onclick="showTab('ref',this)">Reference</button>
+</div>
+
+<!-- ===== CONVERT TAB ===== -->
+<div class="panel active" id="tab-convert">
+  <div class="card">
+    <div class="card-title">Unit Converter</div>
+
+    <label>System</label>
+    <select id="sys" onchange="onSysChange()">
+      <option value="hill">Hill System (Ropani-Aana)</option>
+      <option value="terai">Terai System (Bigha-Kattha)</option>
+    </select>
+
+    <label>From</label>
+    <select id="fromUnit" onchange="onFromUnitChange()"></select>
+
+    <!-- compound input area (shown when a land unit is selected) -->
+    <div id="compoundFrom" style="margin-top:8px;"></div>
+
+    <!-- single decimal input (shown for m² / ft²) -->
+    <div id="singleFrom" style="display:none; margin-top:8px;">
+      <input type="number" id="fromVal" placeholder="Enter value" oninput="convert()" value="" min="0" step="any">
+    </div>
+
+    <label style="margin-top:12px;">To</label>
+    <select id="toUnit" onchange="convert()"></select>
+
+    <div class="result-box">
+      <div class="rl">Result</div>
+      <div class="rv" id="convVal">—</div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="card-title">Full Breakdown</div>
+      <table class="result-table" id="breakdownTable"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ARITHMETIC TAB ===== -->
+<div class="panel" id="tab-arith">
+  <div class="card">
+    <div class="card-title">Arithmetic on Land Measurements</div>
+
+    <label>System</label>
+    <select id="arith-sys" onchange="onArithSysChange()">
+      <option value="hill">Hill (Ropani-Aana-Paisa-Dam)</option>
+      <option value="terai">Terai (Bigha-Kattha-Dhur)</option>
+    </select>
+
+    <div class="op-btns" style="margin-bottom:12px;">
+      <button class="op-btn active" id="op-add" onclick="setOp('+')">+</button>
+      <button class="op-btn" id="op-sub" onclick="setOp('-')">−</button>
+      <button class="op-btn" id="op-mul" onclick="setOp('×')">×</button>
+      <button class="op-btn" id="op-div" onclick="setOp('÷')">÷</button>
+    </div>
+
+    <!-- operand rows (add/subtract) -->
+    <div id="operands-area"></div>
+    <button class="add-row-btn" id="add-row-btn" onclick="addOperandRow()">+ Add Another Value</button>
+
+    <!-- scalar area (mul/div) -->
+    <div id="scalar-area" style="display:none;">
+      <div class="operand-row">
+        <div class="row-label"><span>Value</span></div>
+        <div id="scalar-val-compound"></div>
+      </div>
+      <div class="operand-row scalar-input">
+        <div class="row-label"><span id="scalar-op-label">Multiply by</span></div>
+        <input type="number" id="scalar" min="0" step="any" value="1" placeholder="e.g. 2" style="margin-top:4px;">
+      </div>
+    </div>
+
+    <button class="btn btn-calc" onclick="calculate()" style="margin-top:12px;">= Calculate</button>
+    <div class="error" id="arith-error"></div>
+
+    <div class="result-box" style="margin-top:12px; display:none" id="arith-result">
+      <div class="rl">Result</div>
+      <div class="rv" id="arith-val"></div>
+      <div style="margin-top:8px; font-size:11px; color:var(--muted);" id="arith-breakdown"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== REFERENCE TAB ===== -->
+<div class="panel" id="tab-ref">
+  <div class="card">
+    <div class="card-title">Hill System (Hilly Region)</div>
+    <table class="ref-table">
+      <tr><th>Unit</th><th>Equals</th></tr>
+      <tr><td>1 Ropani</td><td>16 Aana</td></tr>
+      <tr><td>1 Aana</td><td>4 Paisa</td></tr>
+      <tr><td>1 Paisa</td><td>4 Dam</td></tr>
+      <tr><td>1 Ropani</td><td>64 Paisa</td></tr>
+      <tr><td>1 Ropani</td><td>256 Dam</td></tr>
+      <tr><td>1 Ropani</td><td>508.72 m²</td></tr>
+      <tr><td>1 Aana</td><td>31.80 m²</td></tr>
+      <tr><td>1 Paisa</td><td>7.95 m²</td></tr>
+      <tr><td>1 Dam</td><td>1.99 m²</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">Terai System (Plains Region)</div>
+    <table class="ref-table">
+      <tr><th>Unit</th><th>Equals</th></tr>
+      <tr><td>1 Bigha</td><td>20 Kattha</td></tr>
+      <tr><td>1 Kattha</td><td>20 Dhur</td></tr>
+      <tr><td>1 Bigha</td><td>400 Dhur</td></tr>
+      <tr><td>1 Bigha</td><td>6772.63 m²</td></tr>
+      <tr><td>1 Kattha</td><td>338.63 m²</td></tr>
+      <tr><td>1 Dhur</td><td>16.93 m²</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">Cross-System (Approx)</div>
+    <table class="ref-table">
+      <tr><th>Unit</th><th>Approx Equal</th></tr>
+      <tr><td>1 Bigha</td><td>13.31 Ropani</td></tr>
+      <tr><td>1 Ropani</td><td>0.0752 Bigha</td></tr>
+      <tr><td>1 Bigha</td><td>0.677 Hectare</td></tr>
+      <tr><td>1 Ropani</td><td>0.0509 Hectare</td></tr>
+      <tr><td>1 Bigha</td><td>1.67 Acre</td></tr>
+      <tr><td>1 Ropani</td><td>0.1257 Acre</td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+
+// ===== DATA =====
+const HILL = {
+  units: ['Ropani','Aana','Paisa','Dam','Sqm','Sqft'],
+  labels: ['Ropani','Aana','Paisa','Dam','m²','ft²'],
+  landUnits: ['Ropani','Aana','Paisa','Dam'],
+  toDam: { Ropani:256, Aana:16, Paisa:4, Dam:1, Sqm:1/1.9880, Sqft:1/(1.9880*10.7639) },
+  fromDam: { Ropani:1/256, Aana:1/16, Paisa:1/4, Dam:1, Sqm:1.9880, Sqft:1.9880*10.7639 }
+};
+const TERAI = {
+  units: ['Bigha','Kattha','Dhur','Sqm','Sqft'],
+  labels: ['Bigha','Kattha','Dhur','m²','ft²'],
+  landUnits: ['Bigha','Kattha','Dhur'],
+  toDhur: { Bigha:400, Kattha:20, Dhur:1, Sqm:1/16.9295, Sqft:1/(16.9295*10.7639) },
+  fromDhur: { Bigha:1/400, Kattha:1/20, Dhur:1, Sqm:16.9295, Sqft:16.9295*10.7639 }
+};
+
+// ===== TABS =====
+function showTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ===== FORMAT =====
+function fmt(n) {
+  if (Math.abs(n) >= 1000) return n.toLocaleString('en', {maximumFractionDigits:2});
+  if (Math.abs(n) >= 1) return parseFloat(n.toFixed(4)).toString();
+  return parseFloat(n.toFixed(6)).toString();
+}
+
+// ===== COMPOUND INPUT BUILDER =====
+// Hill: Ropani (0+), Aana (0–15), Paisa (0–3), Dam (0–3)
+// Terai: Bigha (0+), Kattha (0–19), Dhur (0–19)
+const HILL_PARTS = [
+  {u:'Ropani', max:null, dec:false},
+  {u:'Aana',   max:15,   dec:false},
+  {u:'Paisa',  max:3,    dec:false},
+  {u:'Dam',    max:null, dec:true}
+];
+const TERAI_PARTS_NEW = [
+  {u:'Bigha',  max:null, dec:false},
+  {u:'Kattha', max:19,   dec:false},
+  {u:'Dhur',   max:null, dec:true}
+];
+const TERAI_PARTS = TERAI_PARTS_NEW;
+
+function clampInput(input, max, dec) {
+  let v = dec ? parseFloat(input.value) : parseInt(input.value);
+  if (isNaN(v) || v < 0) { input.value = 0; return; }
+  if (max !== null && v > max) { input.value = max; return; }
+  // for decimals keep as-is (let user type freely), for int floor it
+  if (!dec) input.value = Math.floor(v);
+}
+
+function buildCompoundInput(containerId, prefix, sys, cb) {
+  const parts = sys === 'hill' ? HILL_PARTS : TERAI_PARTS;
+  const cls = sys === 'hill' ? 'hill4' : 'terai3';
+  const container = document.getElementById(containerId);
+  container.innerHTML = '<div class="compound-grid ' + cls + '">' +
+    parts.map(p => {
+      const maxAttr  = p.max !== null ? 'max="' + p.max + '"' : '';
+      const hint     = p.max !== null ? ' 0-' + p.max : '';
+      const stepAttr = p.dec ? 'step="0.1"' : 'step="1"';
+      const ph       = p.dec ? '0.0' : '0';
+      return '<div class="ci"><label>' + p.u + hint + '</label>' +
+        '<input type="number" id="' + prefix + '-' + p.u + '" min="0" ' + maxAttr + ' ' + stepAttr + ' value="0" placeholder="' + ph + '"' +
+        ' oninput="clampInput(this,' + p.max + ',' + p.dec + ');' + cb + '"></div>';
+    }).join('') +
+    '</div>';
+}
+
+// read compound input → base units (Dam or Dhur)
+// Ropani/Aana/Paisa/Bigha/Kattha are integers; Dam/Dhur allow decimals
+function readCompound(prefix, sys) {
+  function gi(id) {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    const v = Math.floor(parseFloat(el.value));
+    return isNaN(v) || v < 0 ? 0 : v;
+  }
+  function gf(id) {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    const v = parseFloat(el.value);
+    return isNaN(v) || v < 0 ? 0 : v;
+  }
+  if (sys === 'hill') {
+    const r = gi(prefix+'-Ropani');
+    const a = Math.min(gi(prefix+'-Aana'),  15);
+    const p = Math.min(gi(prefix+'-Paisa'), 3);
+    const d = gf(prefix+'-Dam'); // decimal allowed
+    return r*256 + a*16 + p*4 + d;
+  } else {
+    const b = gi(prefix+'-Bigha');
+    const k = Math.min(gi(prefix+'-Kattha'), 19);
+    const d = gf(prefix+'-Dhur'); // decimal allowed
+    return b*400 + k*20 + d;
+  }
+}
+
+function fmtUnit(n) {
+  // show up to 2 decimal places, strip trailing zeros
+  return parseFloat(n.toFixed(2)).toString();
+}
+function baseToText(base, sys) {
+  // base may be decimal (because Dam/Dhur can be decimal)
+  if (sys === 'hill') {
+    const r = Math.floor(base/256); base -= r*256;
+    const a = Math.floor(base/16);  base -= a*16;
+    const p = Math.floor(base/4);   base -= p*4;
+    const d = base; // may be decimal
+    const out = [];
+    if (r) out.push(r+' Ropani');
+    if (a) out.push(a+' Aana');
+    if (p) out.push(p+' Paisa');
+    if (Math.abs(d) > 0.001) out.push(fmtUnit(d)+' Dam');
+    return out.length ? out.join(' ') : '0 Dam';
+  } else {
+    const b = Math.floor(base/400); base -= b*400;
+    const k = Math.floor(base/20);  base -= k*20;
+    const d = base; // may be decimal
+    const out = [];
+    if (b) out.push(b+' Bigha');
+    if (k) out.push(k+' Kattha');
+    if (Math.abs(d) > 0.001) out.push(fmtUnit(d)+' Dhur');
+    return out.length ? out.join(' ') : '0 Dhur';
+  }
+}
+
+// ===== CONVERT TAB =====
+function populateSelects(sys) {
+  const S = sys === 'hill' ? HILL : TERAI;
+  ['fromUnit','toUnit'].forEach((id,i) => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '';
+    S.units.forEach((u,j) => {
+      const opt = document.createElement('option');
+      opt.value = u; opt.text = S.labels[j];
+      sel.appendChild(opt);
+    });
+    sel.selectedIndex = i === 0 ? 0 : 3; // Ropani → m² default
+  });
+}
+
+function onSysChange() {
+  const sys = document.getElementById('sys').value;
+  populateSelects(sys);
+  onFromUnitChange();
+}
+
+function onFromUnitChange() {
+  const sys = document.getElementById('sys').value;
+  const S = sys === 'hill' ? HILL : TERAI;
+  const from = document.getElementById('fromUnit').value;
+  const isLand = S.landUnits.includes(from);
+
+  if (isLand) {
+    document.getElementById('compoundFrom').style.display = '';
+    document.getElementById('singleFrom').style.display = 'none';
+    buildCompoundInput('compoundFrom', 'cv', sys, 'convert()');
+    // pre-set the selected unit field to 1
+    const el = document.getElementById('cv-'+from);
+    if (el) { el.value = 1; }
+  } else {
+    document.getElementById('compoundFrom').style.display = 'none';
+    document.getElementById('singleFrom').style.display = '';
+    document.getElementById('fromVal').value = '';
+  }
+  convert();
+}
+
+function convert() {
+  const sys = document.getElementById('sys').value;
+  const S = sys === 'hill' ? HILL : TERAI;
+  const baseKey = sys === 'hill' ? 'toDam' : 'toDhur';
+  const fromKey = sys === 'hill' ? 'fromDam' : 'fromDhur';
+  const from = document.getElementById('fromUnit').value;
+  const to   = document.getElementById('toUnit').value;
+  const isLand = S.landUnits.includes(from);
+
+  let baseVal;
+  if (isLand) {
+    baseVal = readCompound('cv', sys); // already in base units (Dam/Dhur)
+  } else {
+    const raw = parseFloat(document.getElementById('fromVal').value);
+    if (isNaN(raw) || raw < 0) { document.getElementById('convVal').textContent = '—'; return; }
+    baseVal = raw * S[baseKey][from];
+  }
+
+  const result  = baseVal * S[fromKey][to];
+  const toLabel = S.labels[S.units.indexOf(to)];
+  document.getElementById('convVal').textContent = fmt(result) + ' ' + toLabel;
+  buildBreakdown(baseVal, S, fromKey);
+}
+
+function buildBreakdown(base, S, fromKey) {
+  const tb = document.getElementById('breakdownTable');
+  tb.innerHTML = '';
+  S.units.forEach((u,i) => {
+    const val = base * S[fromKey][u];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${S.labels[i]}</td><td>${fmt(val)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ===== ARITHMETIC TAB =====
+let currentOp = '+';
+let operandCount = 0;
+
+function getArithSys() { return document.getElementById('arith-sys').value; }
+
+function setOp(op) {
+  currentOp = op;
+  document.querySelectorAll('.op-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('op-'+({'+':'add','-':'sub','×':'mul','÷':'div'}[op])).classList.add('active');
+  renderArithMode();
+}
+
+function onArithSysChange() {
+  operandCount = 0;
+  initArith();
+}
+
+function initArith() {
+  operandCount = 0;
+  document.getElementById('operands-area').innerHTML = '';
+  addOperandRow();
+  addOperandRow();
+  renderArithMode();
+  document.getElementById('arith-result').style.display = 'none';
+}
+
+function renderArithMode() {
+  const isMulDiv = currentOp === '×' || currentOp === '÷';
+  document.getElementById('operands-area').style.display = isMulDiv ? 'none' : '';
+  document.getElementById('add-row-btn').style.display = (isMulDiv || currentOp === '-') ? 'none' : '';
+  document.getElementById('scalar-area').style.display = isMulDiv ? '' : '';
+
+  if (isMulDiv) {
+    // rebuild scalar compound for current sys
+    document.getElementById('scalar-area').style.display = '';
+    document.getElementById('operands-area').style.display = 'none';
+    document.getElementById('add-row-btn').style.display = 'none';
+    buildCompoundInput('scalar-val-compound', 'sc', getArithSys(), '');
+    document.getElementById('scalar-op-label').textContent = currentOp === '×' ? 'Multiply by' : 'Divide by';
+  } else {
+    document.getElementById('scalar-area').style.display = 'none';
+    document.getElementById('operands-area').style.display = '';
+    // subtraction: hide add-row, show only 2
+    if (currentOp === '-') {
+      document.getElementById('add-row-btn').style.display = 'none';
+      // keep only 2 rows
+      const rows = document.querySelectorAll('.operand-row');
+      rows.forEach((r,i) => { r.style.display = i < 2 ? '' : 'none'; });
+    } else {
+      document.getElementById('add-row-btn').style.display = '';
+      document.querySelectorAll('.operand-row').forEach(r => r.style.display = '');
+    }
+  }
+}
+
+function addOperandRow() {
+  operandCount++;
+  const idx = operandCount;
+  const sys = getArithSys();
+  const parts = sys === 'hill' ? HILL_PARTS : TERAI_PARTS;
+  const cls = sys === 'hill' ? 'hill4' : 'terai3';
+  const prefix = 'op'+idx;
+  const area = document.getElementById('operands-area');
+
+  const rows = parts.map(p => {
+    const maxAttr  = p.max !== null ? 'max="' + p.max + '"' : '';
+    const hint     = p.max !== null ? ' 0-' + p.max : '';
+    const stepAttr = p.dec ? 'step="0.1"' : 'step="1"';
+    const ph       = p.dec ? '0.0' : '0';
+    return '<div class="ci"><label>' + p.u + hint + '</label>' +
+      '<input type="number" id="' + prefix + '-' + p.u + '" min="0" ' + maxAttr + ' ' + stepAttr + ' value="0" placeholder="' + ph + '"' +
+      ' oninput="clampInput(this,' + p.max + ',' + p.dec + ')"></div>';
+  }).join('');
+
+  const div = document.createElement('div');
+  div.className = 'operand-row';
+  div.id = 'oprow-'+idx;
+  const removeBtn = idx > 2 ? `<button class="btn-sm btn-remove" onclick="removeRow(${idx})">X Remove</button>` : '';
+  div.innerHTML = `
+    <div class="row-label"><span>Value ${idx}</span>${removeBtn}</div>
+    <div class="compound-grid ${cls}">${rows}</div>`;
+  area.appendChild(div);
+}
+
+function removeRow(idx) {
+  const el = document.getElementById('oprow-'+idx);
+  if (el) el.remove();
+}
+
+function getAllOperandBases() {
+  const sys = getArithSys();
+  const rows = document.querySelectorAll('#operands-area .operand-row');
+  const vals = [];
+  rows.forEach(row => {
+    if (row.style.display === 'none') return;
+    const id = row.id.replace('oprow-','');
+    vals.push(readCompound('op'+id, sys));
+  });
+  return vals;
+}
+
+function calculate() {
+  const sys = getArithSys();
+  const errDiv = document.getElementById('arith-error');
+  errDiv.style.display = 'none';
+  let result;
+
+  if (currentOp === '+') {
+    const vals = getAllOperandBases();
+    result = vals.reduce((a,b) => a+b, 0);
+  } else if (currentOp === '-') {
+    const vals = getAllOperandBases();
+    result = vals[0] - (vals[1]||0);
+    if (result < 0) {
+      errDiv.textContent = 'Result is negative — second value is larger than the first.';
+      errDiv.style.display = 'block';
+      document.getElementById('arith-result').style.display = 'none';
+      return;
+    }
+  } else {
+    const v1 = readCompound('sc', sys);
+    const scalar = parseFloat(document.getElementById('scalar').value)||1;
+    if (currentOp === '×') {
+      result = v1 * scalar;
+    } else {
+      if (scalar === 0) { errDiv.textContent = 'Cannot divide by zero.'; errDiv.style.display='block'; return; }
+      result = v1 / scalar;
+    }
+  }
+
+  const text = baseToText(result, sys);
+  document.getElementById('arith-val').textContent = text;
+
+  // also show m² equivalent
+  const sqm = sys === 'hill' ? result * 1.9880 : result * 16.9295;
+  document.getElementById('arith-breakdown').textContent = '≈ ' + fmt(sqm) + ' m²';
+  document.getElementById('arith-result').style.display = 'block';
+}
+
+// ===== INIT =====
+populateSelects('hill');
+onFromUnitChange();
+initArith();
+
+// Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(console.warn);
+    });
+  }
+
+  // Splash
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const s = document.getElementById('splash');
+      if (s) s.classList.add('hidden');
+      setTimeout(() => { if (s) s.remove(); }, 600);
+    }, 1200);
+  });
+
+  // Install banner
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-banner').classList.add('show');
+  });
+  document.getElementById('ib-install').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('install-banner').classList.remove('show');
+  });
+  document.getElementById('ib-dismiss').addEventListener('click', () => {
+    document.getElementById('install-banner').classList.remove('show');
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('install-banner').classList.remove('show');
+  });
+
+
+</script>
+</body>
+</html>
